@@ -1,0 +1,36 @@
+name: pytest
+
+on:
+  push:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: false
+        type: string
+        description: "Folder from which this pipeline executes"
+        default: "."
+
+env:
+  UV_VERSION: "0.5.8"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python and uv
+        uses: "./.github/actions/uv_setup"
+        with:
+          python-version: ${{ matrix.python-version }}
+          uv-version: ${{ env.UV_VERSION }}
+          working-directory: ${{ inputs.working-directory }}
+          cache-key: test
+      - name: Install dependencies
+        run: make dev-install
+        working-directory: ${{ inputs.working-directory }}
+      - name: Run tests
+        run: make test
+        working-directory: ${{ inputs.working-directory }}

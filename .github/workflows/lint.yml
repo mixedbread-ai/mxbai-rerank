@@ -1,0 +1,43 @@
+name: lint
+
+on:
+  push:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+        description: "Folder from which this pipeline executes"
+        default: "."
+  workflow_dispatch:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+        description: "Folder from which this pipeline executes"
+        default: "."
+
+env:
+  UV_VERSION: "0.5.8"
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  lint:
+    name: "Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python and uv
+        uses: "./.github/actions/uv_setup"
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          uv-version: ${{ env.UV_VERSION }}
+          working-directory: ${{ inputs.working-directory }}
+          cache-key: lint
+
+      - name: Install dependencies and run linting
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          make dev-install
+          make lint
