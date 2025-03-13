@@ -129,10 +129,10 @@ Paper following soon.
 If you use this work, please cite:
 
 ```bibtex
-@online{rerank2025mxbai,
-  title={Every Byte Matters: Introducing mxbai-embed-xsmall-v1},
-  author={Sean Lee and Aamir Shakir and Julius Lipp and Rui Huang},
-  year={2025},
+@online{v2rerank2025mxbai,
+  title={Baked-in Brilliance: Reranking Meets RL with mxbai-rerank-v2},
+  author={Sean Lee and Rui Huang and Aamir Shakir and Julius Lipp},
+  year={2024},
   url={https://www.mixedbread.com/blog/mxbai-rerank-v2},
 }
 ```
