@@ -73,7 +73,9 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         self.max_length = max_length or self.tokenizer.model_max_length
 
         self.prepare_predefined_inputs()
-        self.to(self.model.device, dtype=self.model.dtype if self.model.device != "cpu" else torch.float32)
+        self.to(
+            self.model.device, dtype=self.model.dtype if self.model.device != torch.device("cpu") else torch.float32
+        )
         self.eval()
 
     def prepare_predefined_inputs(self):
@@ -214,4 +216,4 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         inputs = self.prepare_inputs(queries=queries, documents=documents, instruction=instruction)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        return self.forward(**inputs).logits.cpu()
+        return self.forward(**inputs).logits.cpu().float()

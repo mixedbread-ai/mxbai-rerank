@@ -36,7 +36,10 @@ class MxbaiRerankV1(BaseReranker, TorchModule):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
         self.max_length = max_length or self.tokenizer.model_max_length
 
-        self.to(self.model.device, dtype=self.model.dtype)
+        self.to(
+            self.model.device,
+            dtype=self.model.dtype if self.model.device != torch.device("cpu") else torch.float32,
+        )
 
     def predict(self, queries: list[str], documents: list[str]) -> torch.Tensor:
         features = self.tokenizer.batch_encode_plus(
@@ -49,4 +52,4 @@ class MxbaiRerankV1(BaseReranker, TorchModule):
 
         with torch.inference_mode():
             outputs = self.model(**{k: v.to(self.device) for k, v in features.items()})
-            return torch.sigmoid(outputs.logits).squeeze(dim=-1).cpu()
+            return torch.sigmoid(outputs.logits).squeeze(dim=-1).cpu().float()
