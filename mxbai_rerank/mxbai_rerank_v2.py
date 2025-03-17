@@ -73,7 +73,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         self.max_length = max_length or self.tokenizer.model_max_length
 
         self.prepare_predefined_inputs()
-        self.to(self.model.device, dtype=self.model.dtype)
+        self.to(self.model.device, dtype=self.model.dtype if self.model.device != "cpu" else torch.float32)
         self.eval()
 
     def prepare_predefined_inputs(self):
