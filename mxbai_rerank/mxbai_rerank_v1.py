@@ -49,4 +49,4 @@ class MxbaiRerankV1(BaseReranker, TorchModule):
 
         with torch.inference_mode():
             outputs = self.model(**{k: v.to(self.device) for k, v in features.items()})
-            return torch.sigmoid(outputs.logits).squeeze(dim=-1).cpu()
+            return torch.sigmoid(outputs.logits).squeeze(dim=-1).cpu().float()

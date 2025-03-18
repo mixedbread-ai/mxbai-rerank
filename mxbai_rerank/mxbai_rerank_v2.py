@@ -214,4 +214,4 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         inputs = self.prepare_inputs(queries=queries, documents=documents, instruction=instruction)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        return self.forward(**inputs).logits.cpu()
+        return self.forward(**inputs).logits.cpu().float()

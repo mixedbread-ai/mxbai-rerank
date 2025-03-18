@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import torch
-from transformers import is_torch_npu_available
 
 
 def top_k_numpy(scores: np.ndarray, k: int, *, sort: bool = True) -> tuple[np.ndarray, np.ndarray]:
@@ -70,12 +69,28 @@ def ensure_multiple_of_8(x: int) -> int:
     return x + (8 - remainder)
 
 
+CPU_INCOMPATIBLE_DTYPE = [torch.float16, torch.bfloat16, torch.half]
+
+
 class TorchModule(torch.nn.Module):
     """A base class for PyTorch modules with additional utility methods, including multi-processing support."""
 
     def __init__(self):
         super().__init__()
         self.register_buffer("_dummy", torch.empty(0), persistent=False)
+
+    def to(self, device: Optional[Union[str, torch.device, int]] = None, dtype: Optional[torch.dtype] = None, **kwargs):
+        """Move the module to a specific device and/or dtype.
+
+        Args:
+            device: The device to move the module to.
+            dtype: The dtype to move the module to.
+        """
+        if torch.device(device).type == "cpu":
+            dtype = dtype or self.dtype
+            dtype = torch.float32 if dtype in CPU_INCOMPATIBLE_DTYPE else dtype
+
+        return super().to(device=device, dtype=dtype, **kwargs)
 
     @property
     def device(self) -> torch.device:
@@ -87,20 +102,9 @@ class TorchModule(torch.nn.Module):
         """Get the current dtype of the module."""
         return self._dummy.dtype
 
-    def cuda(self, device_id: Optional[int] = None):
-        """Move the module to a CUDA device."""
-        if not torch.cuda.is_available():
-            msg = "CUDA is not available"
-            raise RuntimeError(msg)
-        return self.to(torch.device("cuda", device_id))
-
     def mps(self):
         """Move the module to a MPS device."""
         if not torch.backends.mps.is_available():
             msg = "MPS is not available"
             raise RuntimeError(msg)
         return self.to(torch.device("mps"))
-
-    def cpu(self):
-        """Move the module to the CPU."""
-        return self.to(torch.device("cpu"))
