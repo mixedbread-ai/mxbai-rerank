@@ -71,6 +71,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
         self.tokenizer.padding_side = "left"
         self.max_length = max_length or self.tokenizer.model_max_length
+        self.model_max_length = self.tokenizer.model_max_length
 
         self.prepare_predefined_inputs()
         self.to(self.model.device, dtype=self.model.dtype)
@@ -97,7 +98,12 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
             + len(self.chat_template_suffix_inputs)
             + len(self.sep_inputs)
         )
-        self.max_length_padding = ensure_multiple_of_8(self.max_length + predefined_length)
+        
+        # Ensure that the template will not cause the input to exceed the model max length
+        if self.max_length + predefined_length > self.model_max_length:
+            self.max_length = self.model_max_length - predefined_length
+
+        self.max_length_padding = ensure_multiple_of_8(max(self.model_max_length, self.max_length + predefined_length), max_value=self.model_max_length)
 
     def concat_input_ids(self, input_ids: List[int]) -> List[int]:
         """Concatenate input IDs with prompt templates."""
@@ -142,7 +148,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
                 self.doc_prompt.format(document=document),
                 return_tensors=None,
                 add_special_tokens=False,
-                max_length=self.max_length,
+                max_length=min(self.model_max_length - len(query_inputs["input_ids"]), self.max_length), # Avoid exceeding the model maximum length
                 truncation=True,
             )
 
