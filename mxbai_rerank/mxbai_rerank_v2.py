@@ -5,6 +5,7 @@ from typing import ClassVar, Dict, List, Optional
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.utils.logging import set_verbosity_error
 
 from mxbai_rerank.base import BaseReranker
 from mxbai_rerank.utils import TorchModule, auto_device, ensure_multiple_of_8
@@ -45,6 +46,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         torch_dtype: str | torch.dtype = "auto",
         max_length: int = 8192,
         tokenizer_kwargs: Optional[dict] = None,
+        disable_transformers_warnings: bool = False,
         **kwargs,
     ):
         """Initialize the classifier model.
@@ -59,6 +61,9 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         TorchModule.__init__(self)
         tokenizer_kwargs = tokenizer_kwargs or {}
 
+        if disable_transformers_warnings:
+            set_verbosity_error()
+
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
             **{
@@ -71,6 +76,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
         self.tokenizer.padding_side = "left"
         self.max_length = max_length or self.tokenizer.model_max_length
+        self.model_max_length = self.tokenizer.model_max_length
 
         self.prepare_predefined_inputs()
         self.to(self.model.device, dtype=self.model.dtype)
@@ -91,13 +97,19 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         self.chat_template_suffix_inputs = get_input_ids(self.chat_template["suffix"])
 
         # Calculate total length of static tokens
-        predefined_length = (
+        self.predefined_length = (
             len(self.chat_template_prefix_inputs)
             + len(self.task_prompt_inputs)
             + len(self.chat_template_suffix_inputs)
             + len(self.sep_inputs)
         )
-        self.max_length_padding = ensure_multiple_of_8(self.max_length + predefined_length)
+        
+        
+        # Ensure that the template will not cause the input to exceed the model max length
+        if self.max_length + self.predefined_length > self.model_max_length:
+            self.max_length = self.model_max_length - self.predefined_length
+
+        self.max_length_padding = ensure_multiple_of_8(max(self.model_max_length, self.max_length + self.predefined_length), max_value=self.model_max_length)
 
     def concat_input_ids(self, input_ids: List[int]) -> List[int]:
         """Concatenate input IDs with prompt templates."""
@@ -137,12 +149,15 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
                 truncation=True,
             )
 
+            available_tokens = self.model_max_length - len(query_inputs["input_ids"]) - self.predefined_length
+            doc_maxlen = min(available_tokens, self.max_length)
+
             # Tokenize document
             document_inputs = self.tokenizer(
                 self.doc_prompt.format(document=document),
                 return_tensors=None,
                 add_special_tokens=False,
-                max_length=self.max_length,
+                max_length=doc_maxlen,  # Avoid exceeding the model maximum length
                 truncation=True,
             )
 
@@ -166,7 +181,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         # Pad all sequences to same length
         return self.tokenizer.pad(
             inputs,
-            padding=True,
+            padding="longest",
             max_length=self.max_length_padding,
             pad_to_multiple_of=8,  # For efficient tensor operations
             return_tensors="pt",
