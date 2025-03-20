@@ -62,17 +62,25 @@ def ensure_multiple_of_8(x: int, max_value: Optional[int] = None) -> int:
         max_value: The maximum value that the result should not exceed.
 
     Returns:
-        The largest multiple of 8 that is less than or equal to max_value if max_value is provided.
+        The nearest multiple of 8 that is greater than or equal to x,
+        unless that would exceed max_value, in which case returns the
+        largest multiple of 8 that is less than or equal to max_value.
     """
     if max_value is not None:
         max_value -= max_value % 8
-        if x > max_value:
-            x = max_value
-
+        
     remainder = x % 8
     if remainder == 0:
         return x
-    return x - remainder
+    
+    # Round up to next multiple of 8
+    next_multiple = x + (8 - remainder)
+    
+    # Check if the next multiple exceeds max_value
+    if max_value is not None and next_multiple > max_value:
+        return max_value
+    
+    return next_multiple
 
 
 CPU_INCOMPATIBLE_DTYPE = [torch.float16, torch.bfloat16, torch.half]
