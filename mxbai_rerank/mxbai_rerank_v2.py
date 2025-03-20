@@ -5,9 +5,7 @@ from typing import ClassVar, Dict, List, Optional
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-# Remove the transformers spam because of separate encoder calls
 from transformers.utils.logging import set_verbosity_error
-set_verbosity_error()
 
 from mxbai_rerank.base import BaseReranker
 from mxbai_rerank.utils import TorchModule, auto_device, ensure_multiple_of_8
@@ -48,6 +46,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         torch_dtype: str | torch.dtype = "auto",
         max_length: int = 8192,
         tokenizer_kwargs: Optional[dict] = None,
+        disable_transformers_warnings: bool = False,
         **kwargs,
     ):
         """Initialize the classifier model.
@@ -61,6 +60,9 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         """
         TorchModule.__init__(self)
         tokenizer_kwargs = tokenizer_kwargs or {}
+
+        if disable_transformers_warnings:
+            set_verbosity_error()
 
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
