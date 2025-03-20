@@ -68,18 +68,18 @@ def ensure_multiple_of_8(x: int, max_value: Optional[int] = None) -> int:
     """
     if max_value is not None:
         max_value -= max_value % 8
-        
+
     remainder = x % 8
     if remainder == 0:
         return x
-    
+
     # Round up to next multiple of 8
     next_multiple = x + (8 - remainder)
-    
+
     # Check if the next multiple exceeds max_value
     if max_value is not None and next_multiple > max_value:
         return max_value
-    
+
     return next_multiple
 
 
