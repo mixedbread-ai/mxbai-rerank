@@ -5,6 +5,9 @@ from typing import ClassVar, Dict, List, Optional
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+# Remove the transformers spam because of separate encoder calls
+from transformers.utils.logging import set_verbosity_error
+set_verbosity_error()
 
 from mxbai_rerank.base import BaseReranker
 from mxbai_rerank.utils import TorchModule, auto_device, ensure_multiple_of_8
@@ -172,7 +175,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         # Pad all sequences to same length
         return self.tokenizer.pad(
             inputs,
-            padding=True,
+            padding="longest",
             max_length=self.max_length_padding,
             pad_to_multiple_of=8,  # For efficient tensor operations
             return_tensors="pt",
