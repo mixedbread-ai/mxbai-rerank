@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Dict, List, Optional
 
+import numpy as np
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from transformers.utils.logging import set_verbosity_error
@@ -16,6 +17,20 @@ try:
     FLASH_ATTN_AVAILABLE = True
 except ImportError:
     FLASH_ATTN_AVAILABLE = False
+
+
+def sigmoid_norm(x: np.ndarray, estimated_max: float = 10.92) -> np.ndarray:
+    """Sigmoid function with a fixed maximum value.
+
+    Args:
+        x: Input array
+        estimated_max: Estimated maximum value of the input
+
+    Returns:
+        Values between 0 and 1
+    """
+    x = x - estimated_max / 2
+    return 1 / (1 + np.exp(-x))
 
 
 @dataclass
@@ -227,9 +242,12 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         return RerankerOutput(loss=loss, logits=logits, predictions=predictions)
 
     @torch.inference_mode()
-    def predict(self, queries: list[str], documents: list[str], *, instruction: Optional[str] = None) -> torch.Tensor:
+    def predict(self, queries: list[str], documents: list[str], *, instruction: Optional[str] = None, normalize: bool = False) -> torch.Tensor:
         """Get model predictions for query-document pairs."""
         inputs = self.prepare_inputs(queries=queries, documents=documents, instruction=instruction)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        return self.forward(**inputs).logits.cpu().float()
+        scores = self.forward(**inputs).logits.cpu().float()
+        if normalize:
+            scores = sigmoid_norm(scores)
+        return scores
