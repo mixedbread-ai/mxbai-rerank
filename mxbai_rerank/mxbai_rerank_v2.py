@@ -249,7 +249,14 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         return RerankerOutput(loss=loss, logits=logits, predictions=predictions)
 
     @torch.inference_mode()
-    def predict(self, queries: list[str], documents: list[str], *, instruction: Optional[str] = None, normalize: bool = False) -> torch.Tensor:
+    def predict(
+        self,
+        queries: list[str],
+        documents: list[str],
+        *,
+        instruction: Optional[str] = None,
+        normalize: bool = False,
+    ) -> torch.Tensor:
         """Get model predictions for query-document pairs."""
         inputs = self.prepare_inputs(queries=queries, documents=documents, instruction=instruction)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
