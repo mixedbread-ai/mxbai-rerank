@@ -19,7 +19,13 @@ except ImportError:
     FLASH_ATTN_AVAILABLE = False
 
 
-def sigmoid_norm(x: np.ndarray, estimated_max: float = 10.92) -> np.ndarray:
+estimated_max_cfg = {
+    "mixedbread-ai/mxbai-rerank-base-v2": 9.0,
+    "mixedbread-ai/mxbai-rerank-large-v2": 12.0,
+}
+
+
+def sigmoid_norm(x: np.ndarray, estimated_max: float = 9.0) -> np.ndarray:
     """Sigmoid function with a fixed maximum value.
 
     Args:
@@ -93,6 +99,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         cfg = AutoConfig.from_pretrained(model_name_or_path)
         self.max_length = max_length or cfg.max_position_embeddings
         self.model_max_length = cfg.max_position_embeddings
+        self.estimated_max = estimated_max_cfg[model_name_or_path]
 
         self.prepare_predefined_inputs()
         self.to(self.model.device, dtype=self.model.dtype)
@@ -249,5 +256,5 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
 
         scores = self.forward(**inputs).logits.cpu().float()
         if normalize:
-            scores = sigmoid_norm(scores)
+            scores = sigmoid_norm(scores, estimated_max=self.estimated_max)
         return scores
