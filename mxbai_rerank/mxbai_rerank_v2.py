@@ -68,6 +68,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         max_length: int = 8192,
         tokenizer_kwargs: Optional[dict] = None,
         disable_transformers_warnings: bool = False,
+        estimated_max: float | None = None,
         **kwargs,
     ):
         """Initialize the classifier model.
@@ -81,6 +82,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         """
         TorchModule.__init__(self)
         tokenizer_kwargs = tokenizer_kwargs or {}
+        estimated_max = estimated_max or estimated_max_cfg.get(model_name_or_path, 12.0)
 
         if disable_transformers_warnings:
             set_verbosity_error()
@@ -96,10 +98,10 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
         self.tokenizer.padding_side = "left"
-        cfg = AutoConfig.from_pretrained(model_name_or_path)
-        self.max_length = max_length or cfg.max_position_embeddings
-        self.model_max_length = cfg.max_position_embeddings
-        self.estimated_max = estimated_max_cfg[model_name_or_path]
+        self.cfg = AutoConfig.from_pretrained(model_name_or_path)
+        self.max_length = max_length or self.cfg.max_position_embeddings
+        self.model_max_length = self.cfg.max_position_embeddings
+        self.estimated_max = estimated_max
 
         self.prepare_predefined_inputs()
         self.to(self.model.device, dtype=self.model.dtype)
