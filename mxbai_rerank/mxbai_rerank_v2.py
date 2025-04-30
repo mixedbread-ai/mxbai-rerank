@@ -3,13 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Dict, List, Optional
 
-import numpy as np
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from transformers.utils.logging import set_verbosity_error
 
 from mxbai_rerank.base import BaseReranker
-from mxbai_rerank.utils import TorchModule, auto_device, ensure_multiple_of_8
+from mxbai_rerank.utils import TorchModule, auto_device, ensure_multiple_of_8, sigmoid_normalize
 
 try:
     from flash_attn import __version__  # noqa: F401
@@ -23,20 +22,6 @@ estimated_max_cfg = {
     "mixedbread-ai/mxbai-rerank-base-v2": 9.0,
     "mixedbread-ai/mxbai-rerank-large-v2": 12.0,
 }
-
-
-def sigmoid_norm(x: np.ndarray, estimated_max: float = 9.0) -> np.ndarray:
-    """Sigmoid function with a fixed maximum value.
-
-    Args:
-        x: Input array
-        estimated_max: Estimated maximum value of the input
-
-    Returns:
-        Values between 0 and 1
-    """
-    x = x - estimated_max / 2
-    return 1 / (1 + np.exp(-x))
 
 
 @dataclass
@@ -265,5 +250,16 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
 
         scores = self.forward(**inputs).logits.cpu().float()
         if normalize:
-            scores = sigmoid_norm(scores, estimated_max=self.estimated_max)
+            scores = self.normalize_scores(scores)
         return scores
+
+    def normalize_scores(self, scores: torch.Tensor) -> torch.Tensor:
+        """Normalize scores using sigmoid normalization.
+
+        Args:
+            scores: Scores to normalize
+
+        Returns:
+            Normalized scores
+        """
+        return sigmoid_normalize(scores, estimated_max=self.estimated_max)

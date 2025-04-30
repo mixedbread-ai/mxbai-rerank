@@ -6,6 +6,20 @@ import numpy as np
 import torch
 
 
+def sigmoid_normalize(x: np.ndarray, estimated_max: float = 9.0) -> np.ndarray:
+    """Sigmoid function with a fixed maximum value.
+
+    Args:
+        x: Input array
+        estimated_max: Estimated maximum value of the input
+
+    Returns:
+        Values between 0 and 1
+    """
+    x = x - estimated_max / 2
+    return 1 / (1 + np.exp(-x))
+
+
 def top_k_numpy(scores: np.ndarray, k: int, *, sort: bool = True) -> tuple[np.ndarray, np.ndarray]:
     """Get the top k scores and their indices from a numpy array.
 
