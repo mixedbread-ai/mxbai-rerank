@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Dict, List, Optional
 
+import numpy as np
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from transformers.utils.logging import set_verbosity_error
@@ -16,6 +17,26 @@ try:
     FLASH_ATTN_AVAILABLE = True
 except ImportError:
     FLASH_ATTN_AVAILABLE = False
+
+
+estimated_max_cfg = {
+    "mixedbread-ai/mxbai-rerank-base-v2": 9.0,
+    "mixedbread-ai/mxbai-rerank-large-v2": 12.0,
+}
+
+
+def sigmoid_norm(x: np.ndarray, estimated_max: float = 9.0) -> np.ndarray:
+    """Sigmoid function with a fixed maximum value.
+
+    Args:
+        x: Input array
+        estimated_max: Estimated maximum value of the input
+
+    Returns:
+        Values between 0 and 1
+    """
+    x = x - estimated_max / 2
+    return 1 / (1 + np.exp(-x))
 
 
 @dataclass
@@ -47,6 +68,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         max_length: int = 8192,
         tokenizer_kwargs: Optional[dict] = None,
         disable_transformers_warnings: bool = False,
+        estimated_max: float | None = None,
         **kwargs,
     ):
         """Initialize the classifier model.
@@ -60,6 +82,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         """
         TorchModule.__init__(self)
         tokenizer_kwargs = tokenizer_kwargs or {}
+        estimated_max = estimated_max or estimated_max_cfg.get(model_name_or_path, 12.0)
 
         if disable_transformers_warnings:
             set_verbosity_error()
@@ -75,9 +98,10 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
         self.tokenizer.padding_side = "left"
-        cfg = AutoConfig.from_pretrained(model_name_or_path)
-        self.max_length = max_length or cfg.max_position_embeddings
-        self.model_max_length = cfg.max_position_embeddings
+        self.cfg = AutoConfig.from_pretrained(model_name_or_path)
+        self.max_length = max_length or self.cfg.max_position_embeddings
+        self.model_max_length = self.cfg.max_position_embeddings
+        self.estimated_max = estimated_max
 
         self.prepare_predefined_inputs()
         self.to(self.model.device, dtype=self.model.dtype)
@@ -227,9 +251,19 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         return RerankerOutput(loss=loss, logits=logits, predictions=predictions)
 
     @torch.inference_mode()
-    def predict(self, queries: list[str], documents: list[str], *, instruction: Optional[str] = None) -> torch.Tensor:
+    def predict(
+        self,
+        queries: list[str],
+        documents: list[str],
+        *,
+        instruction: Optional[str] = None,
+        normalize: bool = False,
+    ) -> torch.Tensor:
         """Get model predictions for query-document pairs."""
         inputs = self.prepare_inputs(queries=queries, documents=documents, instruction=instruction)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        return self.forward(**inputs).logits.cpu().float()
+        scores = self.forward(**inputs).logits.cpu().float()
+        if normalize:
+            scores = sigmoid_norm(scores, estimated_max=self.estimated_max)
+        return scores
