@@ -81,8 +81,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
                 **kwargs,
             },
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
-        self.tokenizer.padding_side = "left"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, padding_side="left", **tokenizer_kwargs)
         self.cfg = AutoConfig.from_pretrained(model_name_or_path)
         self.max_length = max_length or self.cfg.max_position_embeddings
         self.model_max_length = self.cfg.max_position_embeddings
@@ -218,10 +217,9 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            output_hidden_states=True,
         )
 
-        # Use last hidden state for classification
+        # Use logits for classification
         yes_logits = outputs.logits[:, -1, self.yes_loc]
         no_logits = outputs.logits[:, -1, self.no_loc]
         logits = yes_logits - no_logits
