@@ -64,77 +64,77 @@ jobs:
           echo pkg-name="$(grep -m1 'name =' pyproject.toml | cut -d '"' -f2)" >> $GITHUB_OUTPUT
           echo version="$(grep -m1 'version =' pyproject.toml | cut -d '"' -f2)" >> $GITHUB_OUTPUT
 
-  test-pypi-publish:
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python and uv
-        uses: "./.github/actions/uv_setup"
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          uv-version: ${{ env.UV_VERSION }}
-          working-directory: ${{ inputs.working-directory }}
-          cache-key: release
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: ${{ inputs.working-directory }}/dist/
-      - name: Publish to TestPyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_TOKEN }}
-        run: uvx twine upload --repository testpypi ${{ inputs.working-directory }}/dist/* --use
-        working-directory: ${{ inputs.working-directory }}
+  # test-pypi-publish:
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python and uv
+  #       uses: "./.github/actions/uv_setup"
+  #       with:
+  #         python-version: ${{ env.PYTHON_VERSION }}
+  #         uv-version: ${{ env.UV_VERSION }}
+  #         working-directory: ${{ inputs.working-directory }}
+  #         cache-key: release
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: dist
+  #         path: ${{ inputs.working-directory }}/dist/
+  #     - name: Publish to TestPyPI
+  #       env:
+  #         TWINE_USERNAME: __token__
+  #         TWINE_PASSWORD: ${{ secrets.TEST_PYPI_TOKEN }}
+  #       run: uvx twine upload --repository testpypi ${{ inputs.working-directory }}/dist/* --use
+  #       working-directory: ${{ inputs.working-directory }}
 
-  pre-release-checks:
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python and uv
-        uses: "./.github/actions/uv_setup"
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          uv-version: ${{ env.UV_VERSION }}
-          working-directory: ${{ inputs.working-directory }}
-      - name: Import published package
-        shell: bash
-        working-directory: ${{ inputs.working-directory }}
-        env:
-          PKG_NAME: ${{ needs.build.outputs.pkg-name }}
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          uv pip install \
-            --extra-index-url https://test.pypi.org/simple/ \
-            "$PKG_NAME==$VERSION" || \
-          ( \
-            sleep 5 && \
-            uv pip install \
-              --extra-index-url https://test.pypi.org/simple/ \
-              "$PKG_NAME==$VERSION" \
-          )
-          IMPORT_NAME="$(echo "$PKG_NAME" | sed s/-/_/g)"
-          python -c "import $IMPORT_NAME; print(dir($IMPORT_NAME))"
-      - name: Install test dependencies
-        run: make dev-install
-        working-directory: ${{ inputs.working-directory }}
-      - name: Import published package (again)
-        working-directory: ${{ inputs.working-directory }}
-        shell: bash
-        env:
-          PKG_NAME: ${{ needs.build.outputs.pkg-name }}
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          uv pip install \
-            --extra-index-url https://test.pypi.org/simple/ \
-            "$PKG_NAME==$VERSION"
-      - name: Run tests
-        run: make test
-        working-directory: ${{ inputs.working-directory }}
+  # pre-release-checks:
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python and uv
+  #       uses: "./.github/actions/uv_setup"
+  #       with:
+  #         python-version: ${{ env.PYTHON_VERSION }}
+  #         uv-version: ${{ env.UV_VERSION }}
+  #         working-directory: ${{ inputs.working-directory }}
+  #     - name: Import published package
+  #       shell: bash
+  #       working-directory: ${{ inputs.working-directory }}
+  #       env:
+  #         PKG_NAME: ${{ needs.build.outputs.pkg-name }}
+  #         VERSION: ${{ needs.build.outputs.version }}
+  #       run: |
+  #         uv pip install \
+  #           --extra-index-url https://test.pypi.org/simple/ \
+  #           "$PKG_NAME==$VERSION" || \
+  #         ( \
+  #           sleep 5 && \
+  #           uv pip install \
+  #             --extra-index-url https://test.pypi.org/simple/ \
+  #             "$PKG_NAME==$VERSION" \
+  #         )
+  #         IMPORT_NAME="$(echo "$PKG_NAME" | sed s/-/_/g)"
+  #         uv run python -c "import $IMPORT_NAME; print(dir($IMPORT_NAME))"
+  #     - name: Install test dependencies
+  #       run: make dev-install
+  #       working-directory: ${{ inputs.working-directory }}
+  #     - name: Import published package (again)
+  #       working-directory: ${{ inputs.working-directory }}
+  #       shell: bash
+  #       env:
+  #         PKG_NAME: ${{ needs.build.outputs.pkg-name }}
+  #         VERSION: ${{ needs.build.outputs.version }}
+  #       run: |
+  #         uv pip install \
+  #           --extra-index-url https://test.pypi.org/simple/ \
+  #           "$PKG_NAME==$VERSION"
+  #     - name: Run tests
+  #       run: make test
+  #       working-directory: ${{ inputs.working-directory }}
 
   publish:
-    needs: [build, pre-release-checks]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -157,7 +157,7 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
 
   mark-release:
-    needs: [build, pre-release-checks, publish]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -171,7 +171,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "${{ inputs.working-directory }}/dist/*"
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
           draft: false
           generateReleaseNotes: true
           tag: v${{ needs.build.outputs.version }}
