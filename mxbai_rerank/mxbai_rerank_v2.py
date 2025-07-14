@@ -82,6 +82,7 @@ class MxbaiRerankV2(BaseReranker, TorchModule):
             },
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, padding_side="left", **tokenizer_kwargs)
+        self.tokenizer.padding_side = "left"  # Duplicated overwrite to address reported issues with certain versions of transformers ignoring the constructor args.
         self.cfg = AutoConfig.from_pretrained(model_name_or_path, **kwargs)
         self.max_length = max_length or self.cfg.max_position_embeddings
         self.model_max_length = self.cfg.max_position_embeddings
