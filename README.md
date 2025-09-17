@@ -120,7 +120,7 @@ The models were trained using a three-step process:
 2. **Contrastive Learning**
 3. **Preference Learning**
 
-For more details, check our [technical blog post](https://mixedbread.com/blog/mxbai-rerank-v2).
+For more details, check our [technical blog post](https://mixedbread.com/blog/mxbai-rerank-v2) or [preprint paper](https://arxiv.org/abs/2506.03487).
 
 Paper following soon.
 
@@ -129,11 +129,11 @@ Paper following soon.
 If you use this work, please cite:
 
 ```bibtex
-@online{v2rerank2025mxbai,
-  title={Baked-in Brilliance: Reranking Meets RL with mxbai-rerank-v2},
-  author={Sean Lee and Rui Huang and Aamir Shakir and Julius Lipp},
-  year={2024},
-  url={https://www.mixedbread.com/blog/mxbai-rerank-v2},
+@article{li2025prorank,
+  title={ProRank: Prompt Warmup via Reinforcement Learning for Small Language Models Reranking},
+  author={Li, Xianming and Shakir, Aamir and Huang, Rui and Lipp, Julius and Li, Jing},
+  journal={arXiv preprint arXiv:2506.03487},
+  year={2025}
 }
 ```
 
